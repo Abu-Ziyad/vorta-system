@@ -522,38 +522,37 @@
         }
     }
 
-        // --- INITIALIZE APP & DATA FETCHING ---
-    async function initializeApp() {
-        console.log("Vorta Fitness Initializing from SheetDB...");
-        document.body.style.cursor = 'wait';
-        try {
-            const results = await Promise.allSettled([
-                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`).then(res => res.json()),
-                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`).then(res => res.json()),
-                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`).then(res => res.json()),
-                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.messageHistory}`).then(res => res.json())
-            ]);
+    // --- INITIALIZE APP & DATA FETCHING ---
+async function initializeApp() {
+    console.log("Vorta Fitness Initializing from SheetDB...");
+    document.body.style.cursor = 'wait';
+    try {
+        const results = await Promise.allSettled([
+            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`).then(res => res.json()),
+            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`).then(res => res.json()),
+            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`).then(res => res.json()),
+            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.messageHistory}`).then(res => res.json())
+        ]);
 
-            members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
-            transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
-            subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
-            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt));
-            
-            // ✨✨✨ السطر الجديد الذي أضفته هنا ✨✨✨
-            console.log("Data loaded:", { members, transactions, subscriptionTypes, messageHistory });
+        members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
+        transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+        subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
+        messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt)) : [];
+        
+        // هذا هو السطر الصحيح الذي تمت إضافته للفحص
+        console.log("Data loaded:", { members, transactions, subscriptionTypes, messageHistory });
 
-            setupEventListeners();
-            showTab('dashboard');
-            console.log("Vorta Fitness is Ready.");
+        setupEventListeners();
+        showTab('dashboard');
+        console.log("Vorta Fitness is Ready.");
 
-        } catch (error) {
-            console.error("Failed to initialize app data:", error);
-            alert("فشل في تحميل البيانات من قاعدة البيانات. يرجى التأكد من اتصالك بالإنترنت وتحديث الصفحة.");
-        } finally {
-             document.body.style.cursor = 'default';
-        }
+    } catch (error) {
+        console.error("Failed to initialize app data:", error);
+        alert("فشل في تحميل البيانات من قاعدة البيانات. يرجى التأكد من اتصالك بالإنترنت وتحديث الصفحة.");
+    } finally {
+         document.body.style.cursor = 'default';
     }
-    
+}
     // --- Data Parsing Functions ---
     function parseMember(m) {
         return {
