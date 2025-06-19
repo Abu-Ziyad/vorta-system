@@ -395,9 +395,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-     // =================================================================================
+    // =================================================================================
     // Vorta Fitness - Club Management System
-    // Version: 11.1 (Subscription Fix)
+    // Version: 11.0 (Merged & Fixed)
     // =================================================================================
     'use strict';
 
@@ -547,9 +547,9 @@
             ]);
 
             members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
-            transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => b.date - a.date) : [];
             subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
-            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt)) : [];
+            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => b.sentAt - a.sentAt) : [];
             
             setupEventListeners();
             showTab('dashboard');
@@ -820,6 +820,10 @@
         if (success) form.reset();
     }
     
+
+    // --- All other functions from Code 1 (proven to be stable) ---
+    // The following functions are copied from the stable version (Code 1), with minor adaptations for the new features.
+
     function refreshDashboard(){const t=members.length,a=members.filter(m=>m.subscription?.active).length,u=t-a,o=new Date;o.setHours(0,0,0,0);const e=new Date;e.setDate(o.getDate()+EXPIRATION_REMINDER_DAYS);const r=members.filter(m=>m.subscription?.active&&new Date(m.subscription.endDate)>=o&&new Date(m.subscription.endDate)<=e).length;document.getElementById("total-members").textContent=t,document.getElementById("active-subscriptions").textContent=a,document.getElementById("expiring-subscriptions").textContent=r,document.getElementById("unsubscribed-members").textContent=u;const n=transactions.filter(t=>"income"===t.type).reduce((t,a)=>t+a.amount,0),s=transactions.filter(t=>"expense"===t.type).reduce((t,a)=>t+a.amount,0),i=n-s;document.getElementById("total-income").textContent=formatCurrency(n),document.getElementById("total-expenses").textContent=formatCurrency(s),document.getElementById("net-profit").textContent=formatCurrency(i),renderDashboardCharts()}
     function renderDashboardCharts(){if("undefined"==typeof Chart)return;const t=members.filter(t=>"male"===t.gender).length,a=members.filter(t=>"female"===t.gender).length,o=document.getElementById("genderDistributionChart").getContext("2d");genderChart&&genderChart.destroy(),genderChart=new Chart(o,{type:"doughnut",data:{labels:["Male","Female"],datasets:[{data:[t,a],backgroundColor:["#0d6efd","#dc3545"],borderWidth:0}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"top",labels:{color:"#f8f9fa"}}}}});const e=members.reduce((t,a)=>{if(a.subscription?.active){const o=subscriptionTypes.find(t=>t.name.english===a.subscription.type||t.name.arabic===a.subscription.type)?.name[currentLanguage]||a.subscription.type||"Unknown";t[o]=(t[o]||0)+1}return t},{}),r=document.getElementById("subscriptionTypeChart").getContext("2d");subscriptionChart&&subscriptionChart.destroy(),subscriptionChart=new Chart(r,{type:"bar",data:{labels:Object.keys(e),datasets:[{data:Object.values(e),backgroundColor:["#198754","#ffc107","#0dcaf0","#6f42c1","#e83e8c"]}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1}},scales:{y:{beginAtZero:!0,grid:{color:"#3b3e47"},ticks:{color:"#f8f9fa",stepSize:1}},x:{grid:{display:!1},ticks:{color:"#f8f9fa"}}}}})}
     function loadMembers(){let t=[...members];if(dashboardFilter){const a=new Date;a.setHours(0,0,0,0);const o=new Date;o.setDate(a.getDate()+EXPIRATION_REMINDER_DAYS);switch(dashboardFilter){case"active":t=t.filter(t=>t.subscription&&t.subscription.active);break;case"expiring":t=t.filter(t=>t.subscription?.active&&new Date(t.subscription.endDate)>=a&&new Date(t.subscription.endDate)<=o);break;case"unsubscribed":t=t.filter(t=>!t.subscription||!t.subscription.active)}dashboardFilter=null}const a=document.querySelector("#members-tab .btn-group button.active").dataset.gender;"all"!==a&&(t=t.filter(t=>t.gender===a));const o=document.getElementById("member-search").value.toLowerCase();o&&(t=t.filter(t=>`${t.firstName} ${t.lastName}`.toLowerCase().includes(o)||t.phone.includes(o)||t.email?.toLowerCase().includes(o))),renderMembersTable(t)}
@@ -832,78 +836,7 @@
     async function deleteMember(t){if(confirm(translations.alertConfirmDelete[currentLanguage]))try{const a=await fetch(`${SHEETDB_API_URL}/id/${t}?sheet=${SHEETS.members}`,{method:"DELETE"});if((await a.json()).deleted)members=members.filter(a=>a.id!==t),alert(translations.alertMemberDeleted[currentLanguage]),refreshAllDynamicContent();else throw new Error("SheetDB failed to delete record.")}catch(t){console.error("Failed to delete member:",t),alert("فشل في حذف العضو. يرجى المحاولة مرة أخرى.")}}
     function viewMember(t){const a=members.find(a=>a.id===t);if(!a)return;let o=`<p>${translations.unsubscribed[currentLanguage]}</p>`;if(a.subscription){const t=a.subscription.type,e=(new Date(a.subscription.endDate)).toLocaleDateString(),r=formatCurrency(a.subscription.price);o=`<p><strong>${translations.subscription[currentLanguage]}:</strong> ${t}</p><p><strong>${translations.price[currentLanguage]}:</strong> ${r}</p><p><strong>Ends:</strong> ${e}</p>`}document.getElementById("viewMemberModalBody").innerHTML=`<h6>${a.firstName} ${a.lastName} <span class="badge bg-secondary">ID:${a.id}</span></h6><hr><p><strong>${translations.phone[currentLanguage]}:</strong> ${a.phone}</p>${o}`;new bootstrap.Modal(document.getElementById("viewMemberModal")).show()}
     function addSubscriptionForMember(t){const a=members.find(a=>a.id===t);if(!a)return;const o=document.getElementById("subscription-form");o.querySelector("#subscription-member-id").value=t,o.querySelector("#subscription-member-name").textContent=`${a.firstName} ${a.lastName}`,o.querySelector("#subscription-start-date").valueAsDate=new Date;new bootstrap.Modal(o.closest(".modal")).show()}
-    
-    // --- saveSubscription (FIXED VERSION) ---
-    async function saveSubscription() {
-        const form = document.getElementById("subscription-form");
-        const memberId = parseInt(form.querySelector("#subscription-member-id").value);
-        const memberIndex = members.findIndex(m => m.id === memberId);
-        if (memberIndex === -1) return;
-
-        const subTypeId = form.querySelector("#subscription-modal-type").value;
-        const subType = subscriptionTypes.find(st => st.id == subTypeId);
-        if (!subType) return;
-        
-        const startDate = new Date(form.querySelector("#subscription-start-date").value);
-        if (isNaN(startDate.getTime())) return alert(translations.alertInvalidDate[currentLanguage]);
-        
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + subType.durationDays);
-
-        const updatedData = {
-            subscriptionId: Date.now(),
-            subscriptionType: subType.name.english, // Always save English name for consistency
-            subscriptionPrice: subType.price,
-            subscriptionStartDate: startDate.toISOString(),
-            subscriptionEndDate: endDate.toISOString(),
-            subscriptionActive: 'TRUE'
-        };
-
-        const transactionToSave = {
-            id: transactions.length > 0 ? Math.max(...transactions.map(t => t.id)) + 1 : 1,
-            date: new Date().toISOString(),
-            description: `Subscription: ${members[memberIndex].firstName} ${members[memberIndex].lastName}`,
-            type: 'income',
-            amount: subType.price,
-            memberId: memberId
-        };
-        
-        document.body.style.cursor = 'wait'; // Add loading cursor
-
-        try {
-            // -- THE FIX IS HERE --
-            // We now use the correct 'memberId' to update the record in SheetDB
-            const subResponse = await fetch(`${SHEETDB_API_URL}/id/${memberId}?sheet=${SHEETS.members}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: updatedData })
-            });
-             if (!subResponse.ok) throw new Error('Failed to update member subscription in the database.');
-
-             const transResponse = await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: [transactionToSave] })
-            });
-             if (!transResponse.ok) throw new Error('Failed to create the new transaction in the database.');
-
-            // Update local data only after successful database operations
-            members[memberIndex] = parseMember({ ...members[memberIndex], ...updatedData });
-            transactions.push(parseTransaction(transactionToSave));
-
-            const modal = form.closest('.modal');
-            bootstrap.Modal.getInstance(modal).hide();
-            alert(translations.alertSubUpdated[currentLanguage]);
-            refreshAllDynamicContent();
-
-        } catch (error) {
-            console.error("Error saving subscription:", error);
-            alert("An error occurred while saving the subscription. Please check the console and try again.");
-        } finally {
-            document.body.style.cursor = 'default'; // Remove loading cursor
-        }
-    }
-
+    async function saveSubscription(){const t=document.getElementById("subscription-form"),a=parseInt(t.querySelector("#subscription-member-id").value),o=members.findIndex(t=>t.id===a);if(-1===o)return;const e=t.querySelector("#subscription-modal-type").value,r=subscriptionTypes.find(t=>t.id==e);if(!r)return;const n=new Date(t.querySelector("#subscription-start-date").value);if(isNaN(n.getTime()))return alert(translations.alertInvalidDate[currentLanguage]);const s=new Date(n);s.setDate(n.getDate()+r.durationDays);const i={subscriptionId:Date.now(),subscriptionType:r.name.english,subscriptionPrice:r.price,subscriptionStartDate:n.toISOString(),subscriptionEndDate:s.toISOString(),subscriptionActive:"TRUE"},d={id:transactions.length>0?Math.max(...transactions.map(t=>t.id))+1:1,date:(new Date).toISOString(),description:`Subscription: ${members[o].firstName} ${members[o].lastName}`,type:"income",amount:r.price,memberId:a};try{const a=await fetch(`${SHEETDB_API_URL}/id/${o}?sheet=${SHEETS.members}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:i})});if(!a.ok)throw new Error("Failed to update subscription.");const c=await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[d]})});if(!c.ok)throw new Error("Failed to create transaction.");members[o]=parseMember({...members[o],...i}),transactions.push(parseTransaction(d));const e=t.closest(".modal");bootstrap.Modal.getInstance(e).hide(),alert(translations.alertSubUpdated[currentLanguage]),refreshAllDynamicContent()}catch(t){console.error(t),alert("An error occurred while saving the subscription.")}}
     function loadFinancialsPage(){const t=document.getElementById("financials-table").querySelector("tbody");if(t.innerHTML="",0===transactions.length)return void(t.innerHTML=`<tr><td colspan="5" class="text-center py-4" data-translate="noTransactions">${translations.noTransactions[currentLanguage]}</td></tr>`);transactions.sort((t,a)=>new Date(a.date)-new Date(t.date)).forEach(a=>{const o=t.insertRow(),e="income"===a.type?"text-success":"text-danger";o.innerHTML=`<td>${(new Date(a.date)).toLocaleDateString()}</td><td>${a.description}</td><td><span class="${e} fw-bold">${translations[a.type][currentLanguage]}</span></td><td class="text-end ${e} fw-bold">${formatCurrency(a.amount)}</td><td class="text-end"><button class="btn btn-sm btn-outline-primary me-2" onclick="prepareEditTransactionModal(${a.id})"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction(${a.id})"><i class="fas fa-trash"></i></button></td>`})}
     function prepareAddTransactionModal(){const t=document.getElementById("add-transaction-form");t.reset(),t.querySelector("#transaction-id").value="",document.getElementById("transactionModalLabel").textContent=translations.addTransaction[currentLanguage]}
     function prepareEditTransactionModal(t){const a=transactions.find(a=>a.id===t);if(!a)return;const o=document.getElementById("add-transaction-form");o.reset(),document.getElementById("transactionModalLabel").textContent=translations.editTransaction[currentLanguage],o.querySelector("#transaction-id").value=a.id,o.querySelector("#transaction-type").value=a.type,o.querySelector("#transaction-description").value=a.description,o.querySelector("#transaction-amount").value=a.amount;new bootstrap.Modal(document.getElementById("addTransactionModal")).show()}
