@@ -934,23 +934,5 @@
         }
 
     </script>
-    <!-- ✅ سكربت مخصص لجلب البيانات من Google Sheets -->
-<script>
-  const apiUrl = "https://sheetdb.io/api/v1/7dseleml89pqu"; // استبدل برابطك
-
-  fetch(apiUrl)
-    .then(response => response.json())
-    .then(data => {
-      console.log("📊 بيانات الأعضاء:", data);
-
-      const totalMembers = data.length;
-      const element = document.getElementById("total-members");
-      if (element) element.textContent = totalMembers;
-    })
-    .catch(error => {
-      console.warn("⚠️ تعذر الاتصال بـ Google Sheets", error);
-    });
-</script>
-    
 </body>
 </html>
