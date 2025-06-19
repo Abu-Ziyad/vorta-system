@@ -522,7 +522,7 @@
         }
     }
 
-    // --- INITIALIZE APP & DATA FETCHING ---
+        // --- INITIALIZE APP & DATA FETCHING ---
     async function initializeApp() {
         console.log("Vorta Fitness Initializing from SheetDB...");
         document.body.style.cursor = 'wait';
@@ -537,8 +537,11 @@
             members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
             transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
             subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
-            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt)) : [];
+            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt));
             
+            // ✨✨✨ السطر الجديد الذي أضفته هنا ✨✨✨
+            console.log("Data loaded:", { members, transactions, subscriptionTypes, messageHistory });
+
             setupEventListeners();
             showTab('dashboard');
             console.log("Vorta Fitness is Ready.");
