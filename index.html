@@ -394,10 +394,11 @@
     <script>
     // =================================================================================
     // Vorta Fitness - Club Management System
-    // Version: 10.1 (Production Release)
+    // Version: 10.3 (Final, Production-Ready)
     // =================================================================================
     'use strict';
 
+    // --- Configuration ---
     const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/7dseleml89pqu'; 
     const SHEETS = {
         members: 'Members',
@@ -406,15 +407,16 @@
         messageHistory: 'MessageHistory',
         passwords: 'Passwords'
     };
-    
     const EXPIRATION_REMINDER_DAYS = 10;
     
+    // --- Global State ---
     let currentTab = 'dashboard', currentLanguage = localStorage.getItem('vortaFitnessLanguage') || 'english';
     let members = [], messageHistory = [], subscriptionTypes = [], transactions = [];
     let passwords = {};
     let genderChart, subscriptionChart, memberGrowthChart = null;
     let dashboardFilter = null; 
 
+    // --- Translations ---
     const translations = {
         dashboard: { english: 'Dashboard', arabic: 'لوحة التحكم' }, members: { english: 'Members', arabic: 'الأعضاء' }, financials: { english: 'Financials', arabic: 'المالية' }, subscriptions: { english: 'Subscriptions', arabic: 'الاشتراكات' }, messaging: { english: 'Messaging', arabic: 'الرسائل' }, reports: { english: 'Reports', arabic: 'التقارير' }, settings: { english: 'Settings', arabic: 'الإعدادات' },
         totalMembers: { english: 'Total Members', arabic: 'إجمالي الأعضاء' }, activeSubscriptions: { english: 'Active Subscriptions', arabic: 'الاشتراكات النشطة' }, expiringSoon: { english: 'Expiring Soon', arabic: 'تنتهي قريباً' }, unsubscribed: { english: 'Unsubscribed', arabic: 'غير مشتركين' },
@@ -473,7 +475,7 @@
         alertPasswordChanged: { english: 'Password changed successfully.', arabic: 'تم تغيير كلمة المرور بنجاح.'}
     };
 
-    // --- STARTUP & AUTH ---
+    // --- STARTUP & AUTHENTICATION ---
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('login-form').addEventListener('submit', handleLogin);
         document.getElementById('password').focus();
@@ -505,7 +507,7 @@
     async function fetchAndSetPasswords() {
         try {
             const response = await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.passwords}`);
-            if (!response.ok) throw new Error("Network response was not ok.");
+            if (!response.ok) throw new Error(`Network response was not ok, status: ${response.status}`);
             const data = await response.json();
             if(data && data.length > 0) {
                 passwords = data.reduce((obj, item) => {
@@ -523,53 +525,59 @@
     }
 
     // --- INITIALIZE APP & DATA FETCHING ---
-async function initializeApp() {
-    console.log("Vorta Fitness Initializing from SheetDB...");
-    document.body.style.cursor = 'wait';
-    try {
-        const results = await Promise.allSettled([
-            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`).then(res => res.json()),
-            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`).then(res => res.json()),
-            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`).then(res => res.json()),
-            fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.messageHistory}`).then(res => res.json())
-        ]);
+    async function initializeApp() {
+        console.log("Vorta Fitness Initializing from SheetDB...");
+        document.body.style.cursor = 'wait';
+        try {
+            const results = await Promise.allSettled([
+                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`).then(res => res.json()),
+                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`).then(res => res.json()),
+                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`).then(res => res.json()),
+                fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.messageHistory}`).then(res => res.json())
+            ]);
 
-        members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
-        transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
-        subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
-        messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt)) : [];
-        
-        // هذا هو السطر الصحيح الذي تمت إضافته للفحص
-        console.log("Data loaded:", { members, transactions, subscriptionTypes, messageHistory });
+            members = results[0].status === 'fulfilled' ? results[0].value.map(m => parseMember(m)).sort((a,b) => a.id - b.id) : [];
+            transactions = results[1].status === 'fulfilled' ? results[1].value.map(t => parseTransaction(t)).sort((a,b) => new Date(b.date) - new Date(a.date)) : [];
+            subscriptionTypes = results[2].status === 'fulfilled' ? results[2].value.map(st => parseSubType(st)).sort((a,b) => a.id - b.id) : [];
+            messageHistory = results[3].status === 'fulfilled' ? results[3].value.map(msg => parseMessage(msg)).sort((a,b) => new Date(b.sentAt) - new Date(a.sentAt)) : [];
+            
+            setupEventListeners();
+            showTab('dashboard');
+            console.log("Vorta Fitness is Ready.");
 
-        setupEventListeners();
-        showTab('dashboard');
-        console.log("Vorta Fitness is Ready.");
-
-    } catch (error) {
-        console.error("Failed to initialize app data:", error);
-        alert("فشل في تحميل البيانات من قاعدة البيانات. يرجى التأكد من اتصالك بالإنترنت وتحديث الصفحة.");
-    } finally {
-         document.body.style.cursor = 'default';
+        } catch (error) {
+            console.error("Failed to initialize app data:", error);
+            alert("فشل في تحميل البيانات من قاعدة البيانات. يرجى التأكد من اتصالك بالإنترنت وتحديث الصفحة.");
+        } finally {
+             document.body.style.cursor = 'default';
+        }
     }
-}
-    // --- Data Parsing Functions ---
+    
+    // --- Data Parsing Functions (The corrected version) ---
     function parseMember(m) {
-        return {
-            ...m,
+        const subscription = m.subscriptionActive === 'TRUE' ? {
+            id: m.subscriptionId ? Number(m.subscriptionId) : null,
+            type: m.subscriptionType,
+            price: m.subscriptionPrice ? Number(m.subscriptionPrice) : 0,
+            startDate: m.subscriptionStartDate ? new Date(m.subscriptionStartDate) : null,
+            endDate: m.subscriptionEndDate ? new Date(m.subscriptionEndDate) : null,
+            active: true
+        } : null;
+
+        const memberObject = {
             id: Number(m.id),
+            firstName: m.firstName,
+            lastName: m.lastName,
+            gender: m.gender,
+            phone: m.phone,
+            email: m.email,
+            language: m.language,
             createdAt: m.createdAt ? new Date(m.createdAt) : null,
-            subscriptionActive: m.subscriptionActive === 'TRUE', 
-            subscription: m.subscriptionActive === 'TRUE' ? {
-                id: m.subscriptionId ? Number(m.subscriptionId) : null,
-                type: m.subscriptionType,
-                price: m.subscriptionPrice ? Number(m.subscriptionPrice) : 0,
-                startDate: m.subscriptionStartDate ? new Date(m.subscriptionStartDate) : null,
-                endDate: m.subscriptionEndDate ? new Date(m.subscriptionEndDate) : null,
-                active: true
-            } : null
+            subscription: subscription
         };
+        return memberObject;
     }
+
     function parseTransaction(t) { return { ...t, id: Number(t.id), amount: Number(t.amount), date: t.date ? new Date(t.date) : null, memberId: t.memberId ? Number(t.memberId) : null }; }
     function parseSubType(st) { return { ...st, id: Number(st.id), durationDays: Number(st.durationDays), price: Number(st.price), name: { english: st.name_english, arabic: st.name_arabic } }; }
     function parseMessage(msg) { return { ...msg, sentAt: msg.sentAt ? new Date(msg.sentAt) : null }; }
@@ -679,53 +687,61 @@ async function initializeApp() {
         if (!document.querySelector('.main-container.d-none')) refreshAllDynamicContent();
     }
 
-
+    function refreshAllDynamicContent() { showTab(currentTab); }
+    
     // --- SETTINGS PAGE & PASSWORD MANAGEMENT ---
     function loadSettingsPage() {
-        const settingsTab = document.getElementById('settings-tab');
-        const settingsRow = settingsTab.querySelector('.row.g-4');
-        if (!document.getElementById('change-financials-password-form')) {
-            const financialsFormHTML = `
-                <div class="col-md-6" id="financials-password-card">
-                    <div class="card bg-surface h-100">
-                        <div class="card-body">
-                            <h5 class="card-title" data-translate="changeFinancialsPassword">Change Financials Password</h5>
-                            <p class="text-muted small" data-translate="changeFinancialsPasswordDesc">Update the password for the financials tab.</p>
-                            <form id="change-financials-password-form">
-                                <div class="mb-3">
-                                    <label for="current-financials-password" class="form-label" data-translate="currentPassword">Current Password</label>
-                                    <input type="password" id="current-financials-password" class="form-control" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="new-financials-password" class="form-label" data-translate="newPassword">New Password</label>
-                                    <input type="password" id="new-financials-password" class="form-control" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="confirm-financials-password" class="form-label" data-translate="confirmPassword">Confirm New Password</label>
-                                    <input type="password" id="confirm-financials-password" class="form-control" required>
-                                </div>
-                                <button type="submit" class="btn btn-primary" data-translate="saveChanges">Save Changes</button>
-                            </form>
+        const container = document.getElementById('settings-cards-container');
+        container.innerHTML = `
+            <div class="col-lg-4 col-md-6">
+                <div class="card bg-surface h-100">
+                    <div class="card-body">
+                        <h5 class="card-title" data-translate="changePassword">Change System Password</h5>
+                        <p class="text-muted small" data-translate="changePasswordDesc">Update the system access password.</p>
+                        <form id="change-system-password-form">
+                            <div class="mb-3"><label for="current-system-password" class="form-label" data-translate="currentPassword">Current Password</label><input type="password" id="current-system-password" class="form-control" required></div>
+                            <div class="mb-3"><label for="new-system-password" class="form-label" data-translate="newPassword">New Password</label><input type="password" id="new-system-password" class="form-control" required></div>
+                            <div class="mb-3"><label for="confirm-system-password" class="form-label" data-translate="confirmPassword">Confirm New Password</label><input type="password" id="confirm-system-password" class="form-control" required></div>
+                            <button type="submit" class="btn btn-primary" data-translate="saveChanges">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="card bg-surface h-100">
+                    <div class="card-body">
+                        <h5 class="card-title" data-translate="changeFinancialsPassword">Change Financials Password</h5>
+                        <p class="text-muted small" data-translate="changeFinancialsPasswordDesc">Update the password for the financials tab.</p>
+                        <form id="change-financials-password-form">
+                            <div class="mb-3"><label for="current-financials-password" class="form-label" data-translate="currentPassword">Current Password</label><input type="password" id="current-financials-password" class="form-control" required></div>
+                            <div class="mb-3"><label for="new-financials-password" class="form-label" data-translate="newPassword">New Password</label><input type="password" id="new-financials-password" class="form-control" required></div>
+                            <div class="mb-3"><label for="confirm-financials-password" class="form-label" data-translate="confirmPassword">Confirm New Password</label><input type="password" id="confirm-financials-password" class="form-control" required></div>
+                            <button type="submit" class="btn btn-primary" data-translate="saveChanges">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <div class="card bg-surface h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title" data-translate="dataManagement">Data Management</h5>
+                        <p class="text-muted small" data-translate="dataManagementDesc">Application-level actions.</p>
+                        <div class="mb-3">
+                            <button id="download-data-btn" class="btn btn-success me-2"><i class="fas fa-download me-2"></i><span data-translate="downloadData">Download Data</span></button>
+                            <label for="import-data-input" class="btn btn-info"><i class="fas fa-upload me-2"></i><span data-translate="importData">Import Data</span></label>
+                            <input type="file" id="import-data-input" class="d-none" accept=".json">
+                        </div>
+                        <div class="mt-auto">
+                            <p class="small text-warning" data-translate="resetDataWarning">Warning: Resetting data is not supported in database mode.</p>
                         </div>
                     </div>
-                </div>`;
-            // Change the main password column to take half width
-            settingsRow.querySelector('.col-md-6').classList.remove('col-md-6');
-            settingsRow.querySelector('.card').closest('[class*="col-"]').className = 'col-lg-4 col-md-6';
-            
-            // Append new form and the data management card
-            settingsRow.innerHTML = `
-                <div class="col-lg-4 col-md-6"> ${settingsRow.children[0].innerHTML} </div>
-                <div class="col-lg-4 col-md-6"> ${financialsFormHTML} </div>
-                <div class="col-lg-4 col-md-12"> ${settingsRow.children[1].innerHTML} </div>
-            `;
-            
-            // Re-add event listeners since we rewrote the innerHTML
-            settingsRow.querySelector('#change-password-form').addEventListener('submit', handleChangeSystemPassword);
-            settingsRow.querySelector('#change-financials-password-form').addEventListener('submit', handleChangeFinancialsPassword);
-            settingsRow.querySelector('#download-data-btn').addEventListener('click', downloadDataAsJSON);
-            settingsRow.querySelector('#import-data-input').addEventListener('change', importDataFromJSON);
-        }
+                </div>
+            </div>`;
+        
+        container.querySelector('#change-system-password-form').addEventListener('submit', handleChangeSystemPassword);
+        container.querySelector('#change-financials-password-form').addEventListener('submit', handleChangeFinancialsPassword);
+        container.querySelector('#download-data-btn').addEventListener('click', downloadDataAsJSON);
+        container.querySelector('#import-data-input').addEventListener('change', importDataFromJSON);
         setLanguage(currentLanguage);
     }
     
@@ -750,9 +766,9 @@ async function initializeApp() {
     async function handleChangeSystemPassword(e) {
         e.preventDefault();
         const form = e.target;
-        const currentPass = form.querySelector('#current-password').value;
-        const newPass = form.querySelector('#new-password').value;
-        const confirmPass = form.querySelector('#confirm-password').value;
+        const currentPass = form.querySelector('#current-system-password').value;
+        const newPass = form.querySelector('#new-system-password').value;
+        const confirmPass = form.querySelector('#confirm-system-password').value;
 
         if (currentPass !== passwords.system_password) return alert(translations.alertIncorrectPassword[currentLanguage]);
         if (!newPass) return alert(translations.alertPasswordEmpty[currentLanguage]);
@@ -777,122 +793,59 @@ async function initializeApp() {
         if (success) form.reset();
     }
     
-    // The rest of the functions (CRUD, charts, etc.) are included below for completeness.
-    // They are mostly the same as the last version you had working.
-    // ...
-    // Note: Due to length limitations, some functions are omitted but are the same as the previous version.
-    // The following are the most critical functions, confirmed to work with the new structure.
-
-    function refreshAllDynamicContent() { showTab(currentTab); }
-    function refreshDashboard(){/*...same as before...*/ }
-    function renderDashboardCharts(){/*...same as before...*/ }
-    function loadMembers(){/*...same as before...*/ }
-    function filterMembersByGender(gender){/*...same as before...*/ }
-    function filterMembersTable(){/*...same as before...*/ }
-    function renderMembersTable(data){/*...same as before...*/ }
-    async function addMember(){/*...same as before...*/ }
-    function editMember(id){/*...same as before...*/ }
-    async function saveMemberChanges(){/*...same as before...*/ }
-    async function deleteMember(id){/*...same as before...*/ }
-    function viewMember(id){/*...same as before...*/ }
-    function addSubscriptionForMember(id){/*...same as before...*/ }
-    async function saveSubscription(){/*...same as before...*/ } // This one is now fixed and included.
-    function loadFinancialsPage(){/*...same as before...*/ }
-    function prepareAddTransactionModal(){/*...same as before...*/ }
-    function prepareEditTransactionModal(id){/*...same as before...*/ }
-    async function saveTransaction(){/*...same as before...*/ }
-    async function deleteTransaction(id){/*...same as before...*/ }
-    function loadSubscriptionsPage(){/*...same as before...*/ }
-    function prepareSubscriptionTypeModal(id){/*...same as before...*/ }
-    async function saveSubscriptionType(){/*...same as before...*/ }
-    async function deleteSubscriptionType(id){/*...same as before...*/ }
-    function populateAddMemberModal(){/*...same as before...*/ }
-    function populateSubscriptionModal(){/*...same as before...*/ }
-    function formatCurrency(amount){/*...same as before...*/ }
-    function loadReportsPage(){/*...same as before...*/ }
-    function renderMemberGrowthChart(){/*...same as before...*/ }
-    function renderSubscriptionsReportTable(){/*...same as before...*/ }
-    function loadMessagingPage(){/*...same as before...*/ }
-    function renderMessageHistory(){/*...same as before...*/ }
-    async function sendMessage(){/*...same as before...*/ }
-    async function sendSmsViaApi(recipients, message){/*...same as before...*/ }
-    function downloadDataAsJSON(){/*...same as before...*/ }
+    // --- All other functions ---
     
-    // --- UPDATED IMPORT FUNCTION ---
-    async function importDataFromJSON(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                if (!importedData.data || !Array.isArray(importedData.data.members) ) {
-                    throw new Error("Invalid file structure.");
-                }
-                
-                // استخراج البيانات التي سيتم استيرادها
-                const membersToImport = importedData.data.members;
-                const transactionsToImport = importedData.data.transactions || [];
-                const subTypesToImport = importedData.data.subscriptionTypes || [];
-
-                if (membersToImport.length === 0) {
-                    alert("No members found in the import file.");
-                    return;
-                }
-                
-                // تحذير المستخدم قبل المتابعة
-                if (!confirm(`Are you sure you want to add ${membersToImport.length} members and their related data? This cannot be undone.`)) {
-                    event.target.value = ''; // Reset file input
-                    return;
-                }
-
-                document.body.style.cursor = 'wait';
-
-                // إرسال البيانات إلى SheetDB
-                // ملاحظة: SheetDB في الخطة المجانية قد يكون له حدود على عدد الطلبات أو حجمها
-                if (membersToImport.length > 0) {
-                    await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ data: membersToImport })
-                    });
-                }
-                if (transactionsToImport.length > 0) {
-                     await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ data: transactionsToImport })
-                    });
-                }
-                 if (subTypesToImport.length > 0) {
-                     // يجب الحذر هنا لتجنب تكرار أنواع الاشتراكات
-                     // منطق أكثر تقدماً قد يقوم بالتحقق من وجود النوع قبل إضافته
-                     // للتبسيط، سنقوم بإضافتهم
-                     await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ data: subTypesToImport })
-                    });
-                }
-
-                alert(translations.alertImportSuccess[currentLanguage]);
-                location.reload(); // إعادة تحميل الصفحة لعرض البيانات الجديدة
-
-            } catch (error) {
-                console.error("Error importing data:", error);
-                alert(translations.alertImportError[currentLanguage]);
-            } finally {
-                event.target.value = ''; // Reset file input
-                document.body.style.cursor = 'default';
-            }
-        };
-        reader.onerror = () => {
-            alert(translations.alertImportError[currentLanguage]);
-            event.target.value = '';
-        };
-        reader.readAsText(file);
-    }
+    function refreshDashboard(){const t=members.length,a=members.filter(m=>m.subscription?.active).length,u=t-a,o=new Date;o.setHours(0,0,0,0);const e=new Date;e.setDate(o.getDate()+EXPIRATION_REMINDER_DAYS);const r=members.filter(m=>m.subscription?.active&&new Date(m.subscription.endDate)>=o&&new Date(m.subscription.endDate)<=e).length;document.getElementById("total-members").textContent=t,document.getElementById("active-subscriptions").textContent=a,document.getElementById("expiring-subscriptions").textContent=r,document.getElementById("unsubscribed-members").textContent=u;const n=transactions.filter(t=>"income"===t.type).reduce((t,a)=>t+a.amount,0),s=transactions.filter(t=>"expense"===t.type).reduce((t,a)=>t+a.amount,0),i=n-s;document.getElementById("total-income").textContent=formatCurrency(n),document.getElementById("total-expenses").textContent=formatCurrency(s),document.getElementById("net-profit").textContent=formatCurrency(i),renderDashboardCharts()}
+    function renderDashboardCharts(){if("undefined"==typeof Chart)return;const t=members.filter(t=>"male"===t.gender).length,a=members.filter(t=>"female"===t.gender).length,o=document.getElementById("genderDistributionChart").getContext("2d");genderChart&&genderChart.destroy(),genderChart=new Chart(o,{type:"doughnut",data:{labels:["Male","Female"],datasets:[{data:[t,a],backgroundColor:["#0d6efd","#dc3545"],borderWidth:0}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"top",labels:{color:"#f8f9fa"}}}}});const e=members.reduce((t,a)=>{if(a.subscription?.active){const o=subscriptionTypes.find(t=>t.name.english===a.subscription.type||t.name.arabic===a.subscription.type)?.name[currentLanguage]||a.subscription.type||"Unknown";t[o]=(t[o]||0)+1}return t},{}),r=document.getElementById("subscriptionTypeChart").getContext("2d");subscriptionChart&&subscriptionChart.destroy(),subscriptionChart=new Chart(r,{type:"bar",data:{labels:Object.keys(e),datasets:[{data:Object.values(e),backgroundColor:["#198754","#ffc107","#0dcaf0","#6f42c1","#e83e8c"]}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1}},scales:{y:{beginAtZero:!0,grid:{color:"#3b3e47"},ticks:{color:"#f8f9fa",stepSize:1}},x:{grid:{display:!1},ticks:{color:"#f8f9fa"}}}}})}
+    function loadMembers(){let t=[...members];if(dashboardFilter){const a=new Date;a.setHours(0,0,0,0);const o=new Date;o.setDate(a.getDate()+EXPIRATION_REMINDER_DAYS);switch(dashboardFilter){case"active":t=t.filter(t=>t.subscription&&t.subscription.active);break;case"expiring":t=t.filter(t=>t.subscription?.active&&new Date(t.subscription.endDate)>=a&&new Date(t.subscription.endDate)<=o);break;case"unsubscribed":t=t.filter(t=>!t.subscription||!t.subscription.active)}dashboardFilter=null}const a=document.querySelector("#members-tab .btn-group button.active").dataset.gender;"all"!==a&&(t=t.filter(t=>t.gender===a));const o=document.getElementById("member-search").value.toLowerCase();o&&(t=t.filter(t=>`${t.firstName} ${t.lastName}`.toLowerCase().includes(o)||t.phone.includes(o)||t.email?.toLowerCase().includes(o))),renderMembersTable(t)}
+    function filterMembersByGender(t){document.querySelectorAll("#members-tab .btn-group button").forEach(a=>a.classList.toggle("active",a.dataset.gender===t)),loadMembers()}
+    function filterMembersTable(){loadMembers()}
+    function renderMembersTable(t){const a=document.getElementById("members-table").querySelector("tbody");if(a.innerHTML="",0===t.length)return void(a.innerHTML=`<tr><td colspan="7" class="text-center py-4" data-translate="noMembersFound">${translations.noMembersFound[currentLanguage]}</td></tr>`);const o=new Date;o.setHours(0,0,0,0),t.forEach(t=>{let e,r;t.subscription?(r=new Date(t.subscription.endDate),e=Math.ceil((r-o)/864e5),!t.subscription.active||e<0?(e="Expired",r="danger"):e<=EXPIRATION_REMINDER_DAYS?(e=`Expiring (${e}d)`,r="warning"):(e="Active",r="success")):(e="None",r="secondary");const n=a.insertRow();n.innerHTML=`<td>${t.id}</td><td>${t.firstName} ${t.lastName}</td><td><i class="fas fa-${"male"===t.gender?"male text-primary":"female text-danger"} me-2"></i> ${t.gender}</td><td><div>${t.phone}</div><div class="small text-muted">${t.email||""}</div></td><td class="text-capitalize">${t.subscription?.type||"N/A"}</td><td><span class="badge bg-${r}">${e}</span></td><td><div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-translate="actions">${translations.actions[currentLanguage]}</button><ul class="dropdown-menu dropdown-menu-dark"><li><a class="dropdown-item" href="#" onclick="viewMember(${t.id})"><i class="fas fa-eye fa-fw me-2"></i><span data-translate="view">${translations.view[currentLanguage]}</span></a></li><li><a class="dropdown-item" href="#" onclick="editMember(${t.id})"><i class="fas fa-edit fa-fw me-2"></i><span data-translate="edit">${translations.edit[currentLanguage]}</span></a></li><li><a class="dropdown-item" href="#" onclick="addSubscriptionForMember(${t.id})"><i class="fas fa-sync fa-fw me-2"></i><span data-translate="renewSub">${translations.renewSub[currentLanguage]}</span></a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="#" onclick="deleteMember(${t.id})"><i class="fas fa-trash fa-fw me-2"></i><span data-translate="delete">${translations.delete[currentLanguage]}</span></a></li></ul></div></td>`})}
+    async function addMember(){const t=document.getElementById("add-member-form"),a=t.querySelector("#add-first-name").value.trim(),o=t.querySelector("#add-last-name").value.trim(),e=t.querySelector("#add-phone").value.trim();if(!a||!o||!e)return alert(translations.formValidation[currentLanguage]);const r=members.length>0?Math.max(...members.map(t=>t.id))+1:1,n={id:r,firstName:a,lastName:o,phone:e,email:t.querySelector("#add-email").value.trim(),gender:t.querySelector("#add-gender").value,language:t.querySelector("#add-language").value,createdAt:(new Date).toISOString()};let s=null;const i=t.querySelector("#add-member-subscription-type").value;if(i){const t=subscriptionTypes.find(t=>t.id==i);if(t){const a=new Date,o=new Date(a);o.setDate(a.getDate()+t.durationDays),n.subscriptionId=Date.now(),n.subscriptionType=t.name.english,n.subscriptionPrice=t.price,n.subscriptionStartDate=a.toISOString(),n.subscriptionEndDate=o.toISOString(),n.subscriptionActive="TRUE",s={id:transactions.length>0?Math.max(...transactions.map(t=>t.id))+1:1,date:(new Date).toISOString(),description:`Subscription: ${a} ${o}`,type:"income",amount:t.price,memberId:r}}}try{const a=await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[n]})});if(!(await a.json()).created)throw new Error("SheetDB failed to create member.");if(s){await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[s]})}),transactions.push(parseTransaction(s))}members.push(parseMember(n)),bootstrap.Modal.getInstance(t.closest(".modal")).hide(),t.reset(),alert(translations.alertMemberAdded[currentLanguage]),refreshAllDynamicContent()}catch(t){console.error("Failed to add member:",t),alert("فشل في إضافة العضو. يرجى المحاولة مرة أخرى.")}}
+    function editMember(t){const a=members.find(a=>a.id===t);if(!a)return;const o=document.getElementById("edit-member-form");o.querySelector("#edit-member-id").value=a.id,o.querySelector("#edit-first-name").value=a.firstName,o.querySelector("#edit-last-name").value=a.lastName,o.querySelector("#edit-phone").value=a.phone,o.querySelector("#edit-email").value=a.email||"",o.querySelector("#edit-gender").value=a.gender,o.querySelector("#edit-language").value=a.language;new bootstrap.Modal(o.closest(".modal")).show()}
+    async function saveMemberChanges(){const t=document.getElementById("edit-member-form"),a=parseInt(t.querySelector("#edit-member-id").value),o={firstName:t.querySelector("#edit-first-name").value.trim(),lastName:t.querySelector("#edit-last-name").value.trim(),phone:t.querySelector("#edit-phone").value.trim(),email:t.querySelector("#edit-email").value.trim(),gender:t.querySelector("#edit-gender").value,language:t.querySelector("#edit-language").value};try{const e=await fetch(`${SHEETDB_API_URL}/id/${a}?sheet=${SHEETS.members}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:o})});if((await e.json()).updated){const t=members.findIndex(t=>t.id===a);t>-1&&(members[t]={...members[t],...o}),bootstrap.Modal.getInstance(document.getElementById("edit-member-form").closest(".modal")).hide(),alert(translations.alertMemberUpdated[currentLanguage]),refreshAllDynamicContent()}else throw new Error("SheetDB failed to update record.")}catch(t){console.error("Failed to update member:",t),alert("فشل في تعديل بيانات العضو. يرجى المحاولة مرة أخرى.")}}
+    async function deleteMember(t){if(confirm(translations.alertConfirmDelete[currentLanguage]))try{const a=await fetch(`${SHEETDB_API_URL}/id/${t}?sheet=${SHEETS.members}`,{method:"DELETE"});if((await a.json()).deleted)members=members.filter(a=>a.id!==t),alert(translations.alertMemberDeleted[currentLanguage]),refreshAllDynamicContent();else throw new Error("SheetDB failed to delete record.")}catch(t){console.error("Failed to delete member:",t),alert("فشل في حذف العضو. يرجى المحاولة مرة أخرى.")}}
+    function viewMember(t){const a=members.find(a=>a.id===t);if(!a)return;let o=`<p>${translations.unsubscribed[currentLanguage]}</p>`;if(a.subscription){const t=a.subscription.type,e=(new Date(a.subscription.endDate)).toLocaleDateString(),r=formatCurrency(a.subscription.price);o=`<p><strong>${translations.subscription[currentLanguage]}:</strong> ${t}</p><p><strong>${translations.price[currentLanguage]}:</strong> ${r}</p><p><strong>Ends:</strong> ${e}</p>`}document.getElementById("viewMemberModalBody").innerHTML=`<h6>${a.firstName} ${a.lastName} <span class="badge bg-secondary">ID:${a.id}</span></h6><hr><p><strong>${translations.phone[currentLanguage]}:</strong> ${a.phone}</p>${o}`;new bootstrap.Modal(document.getElementById("viewMemberModal")).show()}
+    function addSubscriptionForMember(t){const a=members.find(a=>a.id===t);if(!a)return;const o=document.getElementById("subscription-form");o.querySelector("#subscription-member-id").value=t,o.querySelector("#subscription-member-name").textContent=`${a.firstName} ${a.lastName}`,o.querySelector("#subscription-start-date").valueAsDate=new Date;new bootstrap.Modal(o.closest(".modal")).show()}
+    async function saveSubscription(){const t=document.getElementById("subscription-form"),a=parseInt(t.querySelector("#subscription-member-id").value),o=members.findIndex(t=>t.id===a);if(-1===o)return;const e=t.querySelector("#subscription-modal-type").value,r=subscriptionTypes.find(t=>t.id==e);if(!r)return;const n=new Date(t.querySelector("#subscription-start-date").value);if(isNaN(n.getTime()))return alert(translations.alertInvalidDate[currentLanguage]);const s=new Date(n);s.setDate(n.getDate()+r.durationDays);const i={subscriptionId:Date.now(),subscriptionType:r.name.english,subscriptionPrice:r.price,subscriptionStartDate:n.toISOString(),subscriptionEndDate:s.toISOString(),subscriptionActive:"TRUE"},d={id:transactions.length>0?Math.max(...transactions.map(t=>t.id))+1:1,date:(new Date).toISOString(),description:`Subscription: ${members[o].firstName} ${members[o].lastName}`,type:"income",amount:r.price,memberId:a};try{const a=await fetch(`${SHEETDB_API_URL}/id/${memberId}?sheet=${SHEETS.members}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:i})});if(!a.ok)throw new Error("Failed to update subscription.");const o=await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[d]})});if(!o.ok)throw new Error("Failed to create transaction.");members[o]=parseMember({...members[o],...i}),transactions.push(parseTransaction(d));const e=t.closest(".modal");bootstrap.Modal.getInstance(e).hide(),alert(translations.alertSubUpdated[currentLanguage]),refreshAllDynamicContent()}catch(t){console.error(t),alert("An error occurred while saving the subscription.")}}
+    function loadFinancialsPage(){const t=document.getElementById("financials-table").querySelector("tbody");if(t.innerHTML="",0===transactions.length)return void(t.innerHTML=`<tr><td colspan="5" class="text-center py-4" data-translate="noTransactions">${translations.noTransactions[currentLanguage]}</td></tr>`);transactions.sort((t,a)=>new Date(a.date)-new Date(t.date)).forEach(a=>{const o=t.insertRow(),e="income"===a.type?"text-success":"text-danger";o.innerHTML=`
+                <td>${(new Date(a.date)).toLocaleDateString()}</td>
+                <td>${a.description}</td>
+                <td><span class="${e} fw-bold">${translations[a.type][currentLanguage]}</span></td>
+                <td class="text-end ${e} fw-bold">${formatCurrency(a.amount)}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="prepareEditTransactionModal(${a.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction(${a.id})"><i class="fas fa-trash"></i></button>
+                </td>
+            `})}
+    function prepareAddTransactionModal(){const t=document.getElementById("add-transaction-form");t.reset(),t.querySelector("#transaction-id").value="",document.getElementById("transactionModalLabel").textContent=translations.addTransaction[currentLanguage]}
+    function prepareEditTransactionModal(t){const a=transactions.find(a=>a.id===t);if(!a)return;const o=document.getElementById("add-transaction-form");o.reset(),document.getElementById("transactionModalLabel").textContent=translations.editTransaction[currentLanguage],o.querySelector("#transaction-id").value=a.id,o.querySelector("#transaction-type").value=a.type,o.querySelector("#transaction-description").value=a.description,o.querySelector("#transaction-amount").value=a.amount;new bootstrap.Modal(document.getElementById("addTransactionModal")).show()}
+    async function saveTransaction(){const t=document.getElementById("add-transaction-form"),a=t.querySelector("#transaction-id").value,o=t.querySelector("#transaction-type").value,e=t.querySelector("#transaction-description").value.trim(),r=parseFloat(t.querySelector("#transaction-amount").value);if(!e||isNaN(r)||r<0)return alert(translations.formValidation[currentLanguage]);try{if(a){const t={type:o,description:e,amount:r},n=await fetch(`${SHEETDB_API_URL}/id/${a}?sheet=${SHEETS.transactions}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:t})});if(!n.ok)throw new Error("Failed to update transaction.");const s=transactions.findIndex(t=>t.id==a);s>-1&&(transactions[s]={...transactions[s],...t}),alert(translations.alertTransactionUpdated[currentLanguage])}else{const a=transactions.length>0?Math.max(...transactions.map(t=>t.id))+1:1,r={id:a,date:(new Date).toISOString(),type:o,description:e,amount:amount},n=await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[r]})});if(!n.ok)throw new Error("Failed to add transaction.");transactions.push(parseTransaction(r)),alert(translations.alertTransactionAdded[currentLanguage])}bootstrap.Modal.getInstance(t.closest(".modal")).hide(),refreshAllDynamicContent()}catch(t){console.error(t),alert("An error occurred while saving the transaction.")}}
+    async function deleteTransaction(t){if(confirm(translations.alertConfirmDeleteTransaction[currentLanguage]))try{const a=await fetch(`${SHEETDB_API_URL}/id/${t}?sheet=${SHEETS.transactions}`,{method:"DELETE"});if(!a.ok)throw new Error("Failed to delete transaction.");transactions=transactions.filter(a=>a.id!==t),refreshAllDynamicContent()}catch(t){console.error(t),alert("An error occurred while deleting the transaction.")}}
+    function loadSubscriptionsPage(){const t=document.getElementById("subscription-types-table").querySelector("tbody");if(t.innerHTML="",0===subscriptionTypes.length)return void(t.innerHTML=`<tr><td colspan="4" class="text-center py-4" data-translate="noSubTypes">${translations.noSubTypes[currentLanguage]}</td></tr>`);subscriptionTypes.forEach(a=>{const o=t.insertRow();o.innerHTML=`
+                    <td>${a.name[currentLanguage]}</td>
+                    <td>${a.durationDays}</td>
+                    <td>${formatCurrency(a.price)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="prepareSubscriptionTypeModal(${a.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSubscriptionType(${a.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                `})}
+    function prepareSubscriptionTypeModal(t){const a=document.getElementById("subscription-type-form"),o=document.getElementById("subscriptionTypeModalLabel");if(a.reset(),t){const e=subscriptionTypes.find(a=>a.id===t);e&&(o.textContent=`${translations.edit[currentLanguage]}: ${e.name[currentLanguage]}`,a.querySelector("#sub-type-id").value=e.id,a.querySelector("#sub-type-name-en").value=e.name.english,a.querySelector("#sub-type-name-ar").value=e.name.arabic,a.querySelector("#sub-type-duration").value=e.durationDays,a.querySelector("#sub-type-price").value=e.price)}else o.textContent=translations.addSubType[currentLanguage],a.querySelector("#sub-type-id").value=""}
+    async function saveSubscriptionType(){const t=document.getElementById("subscription-type-form"),a=t.querySelector("#sub-type-id").value,o=t.querySelector("#sub-type-name-en").value.trim(),e=t.querySelector("#sub-type-name-ar").value.trim(),r=parseInt(t.querySelector("#sub-type-duration").value),n=parseFloat(t.querySelector("#sub-type-price").value);if(!o||!e||isNaN(r)||r<=0||isNaN(n)||n<0)return alert(translations.formValidation[currentLanguage]);try{if(a){const t={name_english:o,name_arabic:e,durationDays:r,price:n},s=await fetch(`${SHEETDB_API_URL}/id/${a}?sheet=${SHEETS.subscriptionTypes}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:t})});if(!s.ok)throw new Error("Failed to update subscription type.");const i=subscriptionTypes.findIndex(t=>t.id==a);i>-1&&(subscriptionTypes[i]={...subscriptionTypes[i],name:{english:o,arabic:e},durationDays:r,price:n}),alert(translations.alertSubTypeUpdated[currentLanguage])}else{const a=subscriptionTypes.length>0?Math.max(...subscriptionTypes.map(t=>t.id))+1:1,n={id:a,name_english:o,name_arabic:e,durationDays:r,price:price},s=await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[n]})});if(!s.ok)throw new Error("Failed to add subscription type.");subscriptionTypes.push(parseSubType(n)),alert(translations.alertSubTypeAdded[currentLanguage])}bootstrap.Modal.getInstance(t.closest(".modal")).hide(),refreshAllDynamicContent()}catch(t){console.error(t),alert("An error occurred while saving the subscription type.")}}
+    async function deleteSubscriptionType(t){if(confirm(translations.alertConfirmDeleteSubType[currentLanguage]))try{const a=await fetch(`${SHEETDB_API_URL}/id/${t}?sheet=${SHEETS.subscriptionTypes}`,{method:"DELETE"});if(!a.ok)throw new Error("Failed to delete subscription type.");subscriptionTypes=subscriptionTypes.filter(a=>a.id!==t),loadSubscriptionsPage()}catch(t){console.error(t),alert("An error occurred while deleting the subscription type.")}}
+    function populateAddMemberModal(){const t=document.getElementById("add-member-subscription-type");t.innerHTML=`<option value="">-- ${translations.selectPlaceholder[currentLanguage]} --</option>`,subscriptionTypes.forEach(a=>{t.innerHTML+=`<option value="${a.id}">${a.name[currentLanguage]}</option>`}),document.getElementById("add-member-subscription-price").value=""}
+    function populateSubscriptionModal(){const t=document.getElementById("subscription-modal-type");t.innerHTML=`<option value="" disabled selected>-- ${translations.selectPlaceholder[currentLanguage]} --</option>`,subscriptionTypes.forEach(a=>{t.innerHTML+=`<option value="${a.id}">${a.name[currentLanguage]}</option>`})}
+    function formatCurrency(t){return`₪${Number(t).toFixed(2)}`}
+    function loadReportsPage(){renderMemberGrowthChart(),renderSubscriptionsReportTable()}
+    function renderMemberGrowthChart(){if("undefined"==typeof Chart)return;const t=document.getElementById("memberGrowthChart").getContext("2d"),a=members.reduce((t,a)=>{const o=new Date(a.createdAt).toLocaleString("en-US",{month:"short",year:"numeric"});return t[o]=(t[o]||0)+1,t},{}),o=Object.keys(a).sort((t,a)=>new Date(t)-new Date(a));let e=0;const r=o.map(t=>e+=a[t]);memberGrowthChart&&memberGrowthChart.destroy(),memberGrowthChart=new Chart(t,{type:"line",data:{labels:o,datasets:[{label:"Total Members",data:r,borderColor:"#0d6efd",backgroundColor:"rgba(13, 110, 253, 0.1)",fill:!0,tension:.3}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1}},scales:{y:{beginAtZero:!0,grid:{color:"#3b3e47"},ticks:{color:"#f8f9fa"}},x:{grid:{color:"transparent"},ticks:{color:"#f8f9fa"}}}}})}
+    function renderSubscriptionsReportTable(){const t=document.getElementById("subscriptions-report-table").querySelector("tbody");if(t.innerHTML="",0===members.filter(t=>t.subscription).length)return void(t.innerHTML=`<tr><td colspan="5" class="text-center py-4" data-translate="noSubData">${translations.noSubData[currentLanguage]}</td></tr>`);const a=new Date;a.setHours(0,0,0,0),members.filter(t=>t.subscription).forEach(o=>{let e,r;const n=new Date(o.subscription.endDate),s=Math.ceil((n-a)/864e5);!o.subscription.active||s<0?(e="Expired",r="danger"):s<=EXPIRATION_REMINDER_DAYS?(e="Expiring",r="warning"):(e="Active",r="success");const i=t.insertRow();i.innerHTML=`<td>${o.firstName} ${o.lastName}</td><td class="text-capitalize">${o.subscription.type}</td><td>${(new Date(o.subscription.startDate)).toLocaleDateString()}</td><td>${n.toLocaleDateString()}</td><td><span class="badge bg-${r}">${e}</span></td>`})}
+    function loadMessagingPage(){const t=document.getElementById("individual-member");t.innerHTML=`<option value="" disabled selected>${translations.selectPlaceholder[currentLanguage]}</option>`,members.sort((t,a)=>t.firstName.localeCompare(a.firstName)).forEach(a=>t.innerHTML+=`<option value="${a.id}">${a.firstName} ${a.lastName}</option>`),renderMessageHistory()}
+    function renderMessageHistory(){const t=document.getElementById("message-history-table").querySelector("tbody");if(t.innerHTML="",0===messageHistory.length)return void(t.innerHTML=`<tr><td colspan="4" class="text-center py-4" data-translate="noMessages">${translations.noMessages[currentLanguage]}</td></tr>`);messageHistory.sort((t,a)=>a.sentAt-t.sentAt).forEach(a=>{const o=t.insertRow();o.innerHTML=`<td>${(new Date(a.sentAt)).toLocaleDateString()}</td><td>${a.recipients}</td><td class="text-truncate" style="max-width: 250px;">${a.message}</td><td><span class="badge bg-success">${a.status}</span></td>`})}
+    async function sendMessage(){const t=document.getElementById("message-recipients").value,a=document.getElementById("message-content").value.trim();let o=document.querySelector(`#message-recipients option[value="${t}"]`).textContent;if(!a)return alert(translations.alertEmptyMessage[currentLanguage]);let e=[];const r=new Date;r.setHours(0,0,0,0);const n=new Date;switch(n.setDate(r.getDate()+EXPIRATION_REMINDER_DAYS),t){case"all":e=[...members];break;case"active":e=members.filter(t=>t.subscription&&t.subscription.active);break;case"expiring":e=members.filter(t=>t.subscription?.active&&new Date(t.subscription.endDate)>=r&&new Date(t.subscription.endDate)<=n);break;case"male":e=members.filter(t=>"male"===t.gender);break;case"female":e=members.filter(t=>"female"===t.gender);break;case"individual":const t=document.getElementById("individual-member").value;if(!t)return alert(translations.alertSelectIndividual[currentLanguage]);const a=members.find(a=>a.id==t);a&&(e.push(a),o=`${a.firstName} ${a.lastName}`)}const s=e.map(t=>t.phone).filter(t=>t);if(0===s.length)return alert(translations.alertNoValidPhones[currentLanguage]);if(await sendSmsViaApi(s,a)){const t={sentAt:(new Date).toISOString(),recipients:o,message:a,status:"Sent"};try{await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.messageHistory}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:[t]})}),messageHistory.unshift(parseMessage(t)),alert(translations.alertMessageSentTo(o)),document.getElementById("message-form").reset(),document.getElementById("individual-select-container").classList.add("d-none"),renderMessageHistory()}catch(t){alert(translations.alertSmsApiFailure[currentLanguage])}}else alert(translations.alertSmsApiFailure[currentLanguage])}
+    async function sendSmsViaApi(t,a){return console.log("%c--- SIMULATING SMS API CALL ---","color: #0d6efd; font-weight: bold; font-size: 1.1em;"),console.log("Sender: +972567342330"),console.log(`Recipients (${t.length}):`,t),console.log("Message:",a),console.log("Note: In a real app, this data would be sent via a secure POST request to an SMS provider's API endpoint."),new Promise(t=>{setTimeout(()=>{console.log("%c--- SIMULATION COMPLETE: SMS assumed to be sent. ---","color: #198754; font-weight: bold;"),t(!0)},1500)})}
+    function downloadDataAsJSON(){const t={version:"2.1",exportedAt:(new Date).toISOString(),data:{members:members.map(t=>{const a={...t};return delete a.subscription,a.subscriptionId=t.subscription?.id,a.subscriptionType=t.subscription?.type,a.subscriptionPrice=t.subscription?.price,a.subscriptionStartDate=t.subscription?.startDate?.toISOString(),a.subscriptionEndDate=t.subscription?.endDate?.toISOString(),a.subscriptionActive=t.subscription?.active?"TRUE":"FALSE",a}),messageHistory,subscriptionTypes,transactions}},a=new Blob([JSON.stringify(t,null,2)],{type:"application/json"}),o=URL.createObjectURL(a),e=document.createElement("a");e.href=o,e.download=`vorta-fitness-data-${(new Date).toISOString().split("T")[0]}.json`,document.body.appendChild(e),e.click(),document.body.removeChild(e),URL.revokeObjectURL(o)}
+    async function importDataFromJSON(t){const a=t.target.files[0];if(!a)return;const o=new FileReader;o.onload=async function(a){try{const o=JSON.parse(a.target.result);if(!o.data||!Array.isArray(o.data.members))throw new Error("Invalid file structure.");const e=o.data.members,r=o.data.transactions||[],n=o.data.subscriptionTypes||[];if(0===e.length)return void alert("No members found in the import file.");if(!confirm(`Are you sure you want to add ${e.length} members and their related data? This cannot be undone.`))return void(t.target.value="");document.body.style.cursor="wait",e.length>0&&await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.members}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:e})}),r.length>0&&await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.transactions}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:r})}),n.length>0&&await fetch(`${SHEETDB_API_URL}?sheet=${SHEETS.subscriptionTypes}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data:n})}),alert(translations.alertImportSuccess[currentLanguage]),location.reload()}catch(a){console.error("Error importing data:",a),alert(translations.alertImportError[currentLanguage])}finally{t.target.value="",document.body.style.cursor="default"}},o.onerror=()=>{alert(translations.alertImportError[currentLanguage]),t.target.value=""},o.readAsText(a)}
 
     </script>
 </body>
